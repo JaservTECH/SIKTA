@@ -1,0 +1,434 @@
+var initializingNewChart = false;
+var chacheJavascriptChart = null;
+var tahunForPemerataan = null;
+var semesterForPemerataan = null;
+var namaForPemerataan = null;
+var pageApprove = 1;
+var totalListPemerataanAktive = 0;
+var nimListPemerataanAktive = "";
+var initChangeColumn = false;
+function reloadRegistrasiPemerataan(){
+	if(tabControl.registrasi == null){
+		tabControl.registrasi = {
+			registrasi : false,
+			status : false,
+			operasi : false
+		};
+	}
+	if(tahunForPemerataan!=null)
+		$("#tahun-ajaran").val(tahunForPemerataan);
+	if(semesterForPemerataan != null)
+		$("#semester-ajaran").val(semesterForPemerataan);
+	if(namaForPemerataan != null)
+		$("#search-name-pemerataan").val(namaForPemerataan);
+	initChangeColumn = true;
+	initializingNewChart = false;
+	refreshTablePemerataanDanChart();
+	$("#search-name-pemerataan").keyup(function(event){
+		if(event.keyCode == 13){
+			pageApprove = 1;
+			initializingNewChart = false;
+			refreshTablePemerataanDanChart();
+		}
+	});
+}
+function refreshTablePemerataanDanChart(){
+	tahunForPemerataan = $("#tahun-ajaran").val();
+	semesterForPemerataan = $("#semester-ajaran").val();
+	namaForPemerataan = $("#search-name-pemerataan").val();
+	reloadChart();
+	reloadTable();
+}
+function showPesan(ctv){
+	modalStaticSingleInformation("Pesan Perubahan",
+	"<div style='padding : 10px; text-align : center;'>"+$(ctv).attr('data-pesan')+"</div>"
+	);
+}
+function filterRow(ctv){
+	if(ctv.value == 'all'){
+		$('.all-row').fadeIn('slow');
+	}else{
+		$('.all-row').fadeOut('slow');
+		var tempChooseFilterRow = ctv.value;
+		$('.data-distribusi').each(function(){
+			if(this.value == tempChooseFilterRow){
+				var tt = this.parentNode;
+				var tt = tt.parentNode;
+				var tt = tt.parentNode;
+				var tt = tt.parentNode;
+				$(tt).fadeIn('slow');
+				//console.log(tt);
+			}
+		});
+	}
+}
+function reloadChart(){
+	openLoadingBar("mengambil diagram ...");
+	if(!initializingNewChart){
+		initializingNewChart = true;
+		j('#setAjax').setAjax({
+			methode : 'POST',
+			url : 'Controlresultregistrasi/getJsonTableNow',
+			bool : true,
+			content : "kode=JASERVCONTROL&tahun="+tahunForPemerataan+"&semester="+semesterForPemerataan,
+			sucOk : function(a){
+				if(a[0]=='1'){
+					setLoadingBarMessage("response diagram diproses ...");
+					chacheJavascriptChart = JSON.parse(a.substr(1,a.length-1));
+					reloadTableChart();
+				}else{
+					setLoadingBarMessage("response diagram gagal  ...");
+				}
+				setTimeout(function(){
+					closeLoadingBar();
+				},800);
+			},
+			sucEr : function(a,b){
+				
+			}
+		});
+		return;
+	}
+	setLoadingBarMessage("response diagram diproses ...");
+	closeLoadingBar();
+}
+function reloadTableChart(){
+	j('#controller-diagram').setInHtml("");
+	chacheChartVariabelGlobal.title.text = "Diagram Pemerataan Distribusi";
+	chacheChartVariabelGlobal.xAxis.categories = chacheJavascriptChart.data[0];
+	chacheChartVariabelGlobal.yAxis.title.text = "Total bimbingan";
+	chacheChartVariabelGlobal.series = [{
+		name : "Total Bimbingan",
+		data : chacheJavascriptChart.data[1]
+	}];
+	Highcharts.chart('controller-diagram',chacheChartVariabelGlobal);
+}
+var randomScalingFactor = function(){ 
+	return Math.round(Math.random()*100)
+};
+var lineChartData = {
+	labels : ["Adit","February","john","jojo","May","June","July","Adit","February","john","jojo","May","June","July","Adit","February","john","jojo","May","June","July"],
+	datasets : [
+	{
+		label: "My First dataset",
+		fillColor : "rgba(20,20,20,0.1)",
+		strokeColor : "#666",
+		pointColor : "rgba(20,20,220,0.8)",
+		pointStrokeColor : "#fff",
+		pointHighlightFill : "#fff",
+		pointHighlightStroke : "rgba(220,220,220,1)",
+		data : [89,67,23,54,56,21,24,89,67,23,54,56,21,24,89,67,23,54,56,21,24]
+	}]
+}
+function openXLForm(url){
+	var year = $('#tahun-ajaran').val();
+	var semester = $('#semester-ajaran').val();
+	var xx = document.createElement("a");
+	xx.target = "_blank";
+	xx.href = url+"/"+year+""+semester;
+	xx.click();
+}
+function resetDiagram(){
+	j('#controller-diagram').setInHtml("");
+	//j('#controller-diagram').setInHtml("<canvas id='canvas' height='450' width='2048' style='color: rgba(220,220,200,1);'></canvas>");
+}
+function reloadTable(){
+	$('.tab-registrasi').fadeIn('slow');
+	$('.tab-operasi').fadeIn('slow');
+	$('.tab-status').fadeIn('slow');
+	openLoadingBar("refresh tabel ...");
+	j("#setAjax").setAjax({
+		methode:"POST",
+		url : "Controlresultregistrasi/getPemerataanListMahasiswa",
+		bool : true,
+		content : "kode=controlroom&tahun="+tahunForPemerataan+"&semester="+semesterForPemerataan+"&key="+namaForPemerataan+"&page="+pageApprove,
+		sucOk : function(a){
+			if(a[0] == '1'){
+				setLoadingBarMessage('proses data ...');
+				a=a.split("|");
+				j('#tabel-pemerataan-mahasiswa').setInHtml(a[0].substr(1,a[0].length-1));
+				//j('#table-pemerataan-next-prev').setInHtml(a[1]);
+				totalListPemerataanAktive = parseInt(a[2]);
+				nimListPemerataanAktive = "";
+				if(totalListPemerataanAktive > 0){
+					nimListPemerataanAktive = a[3].split(",");
+				}
+				if(initChangeColumn){
+					initChangeColumn = false;
+					$("#tahun-ajaran").on('change',function(){
+						pageApprove = 1;
+						initializingNewChart = false;
+						refreshTablePemerataanDanChart();
+					});
+					$("#semester-ajaran").on('change',function(){
+						pageApprove = 1;
+						initializingNewChart = false;
+						refreshTablePemerataanDanChart();
+					});
+				}
+				$('#filter-row').trigger('change');
+				if(tabControl.registrasi.registrasi) $('.tab-registrasi').fadeOut('slow');
+				if(tabControl.registrasi.operasi) $('.tab-operasi').fadeOut('slow');
+				if(tabControl.registrasi.status) $('.tab-status').fadeOut('slow');
+			}else
+				setLoadingBarMessage('data gagal diambil ...');
+			setTimeout(function(){
+				closeLoadingBar();
+				//reloadChart();
+			},600);
+		}
+	});
+}
+function previousPageRegistrasiBase(){
+	pageApprove-=1;
+	reloadTable();
+}
+function nextPageRegistrasiBase(){
+	pageApprove+=1;
+	reloadTable();
+}
+function changeValueOfDosenOnChart(nip,cat){
+	tempI = 0;
+	while(chacheJavascriptChart.data[2][tempI]){
+		//alert(chacheJavascriptChart.data[2][tempI]+" "+nip);
+		if(chacheJavascriptChart.data[2][tempI] == nip){
+			switch(cat){
+				case '+' : chacheJavascriptChart.data[1][tempI] = (parseInt(chacheJavascriptChart.data[1][tempI]) + 1); break;
+				case '-' : chacheJavascriptChart.data[1][tempI] = (parseInt(chacheJavascriptChart.data[1][tempI]) - 1); break;
+			}
+		}
+		tempI++;
+	}
+}
+function changeDospem(nim,id,tempRight){
+	//console.log(id.oldvalue+" "+id.value);
+	//alert(id.value+" "+id.oldvalue);
+	if(parseInt(id.value) == 0){
+		if(parseInt(tempRight.value) == 0){
+			tempRight.value = id.oldvalue;
+		}
+	}else{
+		changeValueOfDosenOnChart(id.value,"+");
+		if(parseInt(tempRight.value) == 0){
+			tempRight.value = id.oldvalue;
+		}else if(tempRight.value == id.value){
+			tempRight.value = 0;
+		}
+	}
+	if(parseInt(id.oldvalue) != 0){
+		changeValueOfDosenOnChart(id.oldvalue,"-");
+	}
+	id.oldvalue = id.value;
+	//after some change dospem we need to refresh list may be filter active in one account but data dosen different
+	$('#filter-row').trigger('change');
+	reloadTableChart();
+}
+function saveAllPemerataanList(){
+	openLoadingBar("Process this page ...");
+	if(totalListPemerataanAktive <= 0){
+		setLoadingBarMessage("tidak ada data yang aktif pada list1");
+		setTimeout(function(){
+			closeLoadingBar();
+		},800);
+		return;
+	}
+	nim = "";
+	nip = "";
+	dataNimNip = 0;
+	for(tempI = 1; tempI <= totalListPemerataanAktive;tempI++){
+		if(document.getElementById('select-satu-'+tempI)){	
+			nim += nimListPemerataanAktive[tempI-1]+",";
+			nip += document.getElementById('select-satu-'+tempI).value+",";
+			dataNimNip++;
+			/* if(document.getElementById('select-dua-'+tempI).value != 0){
+				
+			} */
+		}
+	}
+	//alert(nim+" "+nip+" "+dataNimNip);
+	nim = nim.substr(0,nim.length-1);
+	nip = nip.substr(0,nip.length-1);
+	if(dataNimNip>1){
+		tempSenDospem(nim,nip,'two');
+	}else if(dataNimNip == 1){
+		tempSenDospem(nim,nip,'one');
+	}else{
+		setLoadingBarMessage("tidak ada data yang aktif pada list2");
+		setTimeout(function(){
+			closeLoadingBar();
+		},800);
+	}
+	return;
+}
+function tempSenDospem(nim,nip,kode){
+	openLoadingBar("menyimpan perubahan ...");
+	j('#setAjax').setAjax({
+		methode : 'POST',
+		url : "Controlresultregistrasi/setDospem",
+		content : "nim="+nim+"&nip="+nip+"&kode=JASERVCONTROL&tahun="+tahunForPemerataan+"&semester="+semesterForPemerataan+"&kodes="+kode,
+		bool : true,
+		sucOk : function(a){
+			if(a[0] == '1'){
+				setLoadingBarMessage('perubahan berhasil disimpan ...');	
+				setTimeout(function(){
+					closeLoadingBar();
+					initializingNewChart = false;
+					reloadChart();
+					reloadTable();
+				},800);	
+			}else{
+				setLoadingBarMessage(a.substr(1,a.length-1)+' ...');
+				setTimeout(function(){
+					closeLoadingBar();
+					initializingNewChart = false;
+					reloadChart();
+					reloadTable();
+				},800);	
+			}
+		},
+		sucEr : function(a,b){
+		
+		}
+	});
+}
+function setOnThisPageAsJustOne(tempKodeSTM){
+	openLoadingBar("Process this page ...");
+	j("#setAjax").setAjax({
+		methode:"POST",
+		url : "Controlresultregistrasi/setOnlyThisPage",
+		bool : true,
+		content : "kode=controlroom&tahun="+tahunForPemerataan+"&semester="+semesterForPemerataan+"&key="+namaForPemerataan+"&page="+pageApprove+"&kodeS="+tempKodeSTM,
+		sucOk : function(a){
+			if(a[0] == '1'){
+				//alert(a);
+				modalStaticSingleInformation("Hasil Perubahan","<div style='padding : 10px;'>"+a.substr(1,a.length-1)+"</div>");
+				reloadTable();
+			}else
+				setLoadingBarMessage('data gagal diambil ...');
+			setTimeout(function(){
+				closeLoadingBar();
+			},1500);
+		}
+	});
+}
+
+function setOnThisPageAsForAll(tempKodeSTM){
+	openLoadingBar("Process this page ...");
+	j("#setAjax").setAjax({
+		methode:"POST",
+		url : "Controlresultregistrasi/setAllEveryRegister",
+		bool : true,
+		content : "kode=controlroom&tahun="+tahunForPemerataan+"&semester="+semesterForPemerataan+"&key="+namaForPemerataan+"&page="+pageApprove+"&kodeS="+tempKodeSTM,
+		sucOk : function(a){
+			if(a[0] == '1'){
+				//alert(a);
+				modalStaticSingleInformation("Hasil Perubahan","<div style='padding : 10px;'>"+a.substr(1,a.length-1)+"</div>");
+				reloadTable();
+			}else
+				setLoadingBarMessage('data gagal diambil ...');
+			setTimeout(function(){
+				closeLoadingBar();
+			},800);
+		}
+	});
+}
+function detailThisGuys(a){
+	openLoadingBar("mengambil data mahasiswa");
+	j('#setAjax').setAjax({
+		methode : 'POST',
+		url : 'Controlresultregistrasi/getInfoMahasiswaFull',
+		bool : true,
+		content : "kode=JASERVTECH-KODE&nim="+a+"&tahun="+tahunForPemerataan+"&semester="+semesterForPemerataan,
+		sucOk : function(a){
+			if(a[0]=='1'){
+				setLoadingBarMessage("response berhasil diproses ...");
+				openModalContact(a.substr(1,a.length-1),"Tentang Mahasiswa");
+			}else{
+				setLoadingBarMessage(a.substr(1,a.length-1));
+			}
+			setTimeout(function(){
+				closeLoadingBar();
+			},750);
+		},
+		sucEr : function(a,b){
+			template(a,b,"sesi info mahasiswa");
+		}
+	});
+}
+function detailThisDospem(a,x){
+	nip = document.getElementById('select-satu-'+x).value;
+	if(nip == "0")
+		return;
+	openLoadingBar("mengambil data dosen");
+	j('#setAjax').setAjax({
+		methode : 'POST',
+		url : 'Controlresultregistrasi/getInfoDosenFull',
+		bool : true,
+		content : "kode=JASERVTECH-KODE&nim="+a+"&nip="+nip,
+		sucOk : function(a){
+			if(a[0]=='1'){
+				setLoadingBarMessage("response berhasil diproses ...");
+				openModalContact(a.substr(1,a.length-1),"Tentang Mahasiswa");
+			}else{
+				setLoadingBarMessage(a.substr(1,a.length-1));
+			}
+			setTimeout(function(){
+				closeLoadingBar();
+			},750);
+		},
+		sucEr : function(a,b){
+			template(a,b,"sesi info dosen");
+		}
+	});
+}
+function detailCompareThisGuysWithDospem(a,x){
+	
+nip = document.getElementById('select-satu-'+x).value;
+	if(nip == "0")
+		return;
+	openLoadingBar("mengambil data dosen compare");
+	j('#setAjax').setAjax({
+		methode : 'POST',
+		url : 'Controlresultregistrasi/getInfoDosenAndMahasiswaComparasiFull',
+		bool : true,
+		content : "kode=JASERVTECH-KODE&nim="+a+"&nip="+nip+"&tahun="+tahunForPemerataan+"&semester="+semesterForPemerataan,
+		sucOk : function(a){
+			if(a[0]=='1'){
+				setLoadingBarMessage("response berhasil diproses ...");
+				openModalContact(a.substr(1,a.length-1),"Tentang Mahasiswa");
+			}else{
+				setLoadingBarMessage(a.substr(1,a.length-1));
+			}
+			setTimeout(function(){
+				closeLoadingBar();
+			},750);
+		},
+		sucEr : function(a,b){
+			template(a,b,"sesi info dosen compare");
+		}
+	});
+}
+function changeDataProses(aaa,b){
+	openLoadingBar("merubah data status register");
+	j('#setAjax').setAjax({
+		methode : 'POST',
+		url : 'Controlresultregistrasi/setStatusMahasiswaRegister',
+		bool : true,
+		content : "kode=JASERVTECH-KODE&nim="+aaa+"&kodeS="+b,
+		sucOk : function(a){
+			if(a[0]=='1'){
+				setLoadingBarMessage("response berhasil diproses ...");
+			}else{
+				reloadTable();
+				reloadChart();
+				setLoadingBarMessage(a.substr(1,a.length-1));
+			}
+			setTimeout(function(){
+				closeLoadingBar();
+			},750);
+		},
+		sucEr : function(a,b){
+			template(a,b,"sesi status register");
+		}
+	});
+}
